@@ -21,17 +21,19 @@ def sidewalks():
                 DEFAULT FALSE
             ''')
 
+    # Note: checking within 1e-6 degrees, which is ~10 cm
+    # This method is used (rather than reprojecting) because it's fast, at the
+    # expense of having non-equal lat/lon units.
     with engine.begin() as conn:
-        dwithin = 'ST_DWithin(c.geom::geography, s2.geom::geography, 0.1)'
         conn.execute('''
         UPDATE sidewalks s
            SET construction=TRUE
           FROM (SELECT s2.gid
                   FROM construction c
                   JOIN sidewalks s2
-                    ON {}) AS q
+                    ON ST_DWithin(c.geom, s2.geom, 0.000001)) q
          WHERE q.gid = s.gid
-        '''.format(dwithin))
+        ''')
 
     print('Done')
 
