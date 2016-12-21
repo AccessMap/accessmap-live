@@ -193,11 +193,11 @@ def construction():
     permits_df['start_date'] = permits_df['start_date'].apply(timestamp_date)
     permits_df['end_date'] = permits_df['end_date'].apply(timestamp_date)
 
-    # Geometry needs to be latlon wkt for writing to database
+    # Geometry needs to be latlon EWKT for writing to database
     geom = gpd.GeoSeries(permits_df['geom'])
     geom.crs = {'init': 'epsg:26910'}
     geom = geom.to_crs(epsg=4326)
-    permits_df['geom'] = geom.apply(lambda x: wkt.dumps(x))
+    permits_df['geom'] = geom.apply(lambda x: 'SRID=4326;' + wkt.dumps(x))
 
     #
     # Update the database
@@ -212,7 +212,7 @@ def construction():
             meta = sa.MetaData()
             construction_t = sa.Table('construction', meta,  # noqa: E128
                 sa.Column('id', sa.Integer, primary_key=True),
-                sa.Column('geom', ga.Geometry('Point')),
+                sa.Column('geom', ga.Geometry('Point', srid=4326)),
                 sa.Column('address', sa.String),
                 sa.Column('start_date', sa.Date),
                 sa.Column('end_date', sa.Date),
