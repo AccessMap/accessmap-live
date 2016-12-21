@@ -1,10 +1,10 @@
 wheel==0.29.0
-GeoAlchemy2-0.4.0
+GeoAlchemy2==0.4.0
 geopandas==0.2.1
 pandas==0.19.1
 psycopg2==2.6.2
 requests==2.12.4
-Rtree-0.8.3
+Rtree==0.8.3
 schedule==0.4.2
 Shapely==1.5.17
 SQLAlchemy==1.1.4
