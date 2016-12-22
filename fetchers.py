@@ -171,12 +171,13 @@ def construction():
     # Create a simpler (subsetted) table for writing to the database
     permits_df = unique[['permit_address_text', 'sdwlk_closed_flag',
                          'sdwlk_close_start_dt', 'sdwlk_close_end_dt',
-                         'permit_geom']]
+                         'permit_no_num', 'permit_geom']]
     permits_df = permits_df.rename(columns={
         'permit_address_text': 'address',
         'sdwlk_closed_flag': 'closed',
         'sdwlk_close_start_dt': 'start_date',
         'sdwlk_close_end_dt': 'end_date',
+        'permit_no_num': 'permit_number',
         'permit_geom': 'geom'
     })
 
@@ -213,6 +214,7 @@ def construction():
             construction_t = sa.Table('construction', meta,  # noqa: E128
                 sa.Column('id', sa.Integer, primary_key=True),
                 sa.Column('geom', ga.Geometry('Point', srid=4326)),
+                sa.Column('permit_number', sa.String),
                 sa.Column('address', sa.String),
                 sa.Column('start_date', sa.Date),
                 sa.Column('end_date', sa.Date),
