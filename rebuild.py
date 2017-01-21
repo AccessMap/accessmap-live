@@ -39,11 +39,44 @@ def sidewalks():
 
 
 def routing():
-    # Rebuild the routing table
+    '''Rebuilds the routing table.'''
 
     # Process sidewalks + crossings into single table, sets up pgrouting
     # columns
+    print('Updating routing table...')
 
-    # Sets up pgrouting vertices table
+    with engine.begin() as conn:
+        try:
+            # If the routing table doesn't have a construction column, add it
+            has_column = conn.execute("""
+            SELECT column_name
+              FROM information_schema.columns
+             WHERE table_name='routing'
+               AND column_name='construction'
+            """)
 
-    pass
+            if not has_column.first():
+                conn.execute('''
+                ALTER TABLE routing
+                 ADD COLUMN construction boolean
+                    DEFAULT FALSE
+                ''')
+
+            # Update routing table based on sidewalks table
+            conn.execute('''
+            UPDATE routing r
+               SET construction=s.construction
+              FROM sidewalks s
+             WHERE r.iscrossing=0
+               AND r.o_id = s.gid
+            ''')
+
+            # Set up pgrouting vertices table
+            conn.execute('''
+            SELECT pgr_createTopology('routing', 0.00001, 'geom', 'id');
+            ''')
+        except Exception as e:
+            raise e
+            print('    Failed')
+
+    print('Done')

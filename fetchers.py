@@ -35,9 +35,12 @@ def construction():
         '$having': ' AND '.join(having),
         '$limit': '10000'
     }
+
+    # 'By Use' dataset has the address geometry (a POINT feature)
     print('    Getting street use permits by use')
     use_response = requests.get(use_url, params=params)
 
+    # 'By Impact' dataset has the street geometry (a LINESTRING feature)
     print('    Getting street use permits by impact')
     impact_response = requests.get(impact_url, params=params)
 
@@ -191,6 +194,7 @@ def construction():
         timestamp = int(timestamp)
         return datetime.datetime.fromtimestamp(timestamp).date().isoformat()
 
+    permits_df.dropna(subset=['start_date', 'end_date'], inplace=True)
     permits_df['start_date'] = permits_df['start_date'].apply(timestamp_date)
     permits_df['end_date'] = permits_df['end_date'].apply(timestamp_date)
 
