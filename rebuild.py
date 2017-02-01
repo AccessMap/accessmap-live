@@ -71,6 +71,15 @@ def routing():
                AND r.o_id = s.gid
             ''')
 
+            # Update routing table based on crossings table
+            conn.execute('''
+            UPDATE routing r
+               SET curbramps = c.curbramps
+              FROM crossings c
+             WHERE r.iscrossing=1
+               AND r.o_id = c.id
+            ''')
+
             # Set up pgrouting vertices table
             conn.execute('''
             SELECT pgr_createTopology('routing', 0.00001, 'geom', 'id');
