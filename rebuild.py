@@ -80,9 +80,48 @@ def routing():
                AND r.o_id = c.id
             ''')
 
+            # Create node network table
+            print('Creating node network...')
+            conn.execute('''
+            DROP TABLE IF EXISTS routing_noded;
+            SELECT pgr_nodeNetwork('routing', 0.000001, 'id', 'geom');
+            ''')
+
+            # Add metadata do node network table
+            print('Updating node network metadata...')
+            conn.execute('''
+            ALTER TABLE routing_noded
+             ADD COLUMN length numeric(6, 2) DEFAULT 0.0;
+            ALTER TABLE routing_noded
+             ADD COLUMN grade numeric(6, 4) DEFAULT 0.0;
+            ALTER TABLE routing_noded
+             ADD COLUMN curbramps boolean DEFAULT FALSE;
+            ALTER TABLE routing_noded
+             ADD COLUMN iscrossing boolean DEFAULT FALSE;
+            ALTER TABLE routing_noded
+             ADD COLUMN construction boolean DEFAULT FALSE;
+            ''')
+
+            conn.execute('''
+            UPDATE routing_noded rn
+               SET length = ST_Length(rn.geom::geography),
+                   grade = r.grade,
+                   curbramps = r.curbramps,
+                   iscrossing = r.iscrossing::boolean
+              FROM routing r
+             WHERE rn.old_id = r.id
+            ''')
+
+            conn.execute('''
+            UPDATE routing_noded n
+               SET construction = TRUE
+              FROM construction c
+             WHERE ST_DWithin(n.geom, c.geom, 0.000001)
+            ''')
+
             # Set up pgrouting vertices table
             conn.execute('''
-            SELECT pgr_createTopology('routing', 0.00001, 'geom', 'id');
+            SELECT pgr_createTopology('routing_noded', 0.000001, 'geom', 'id');
             ''')
         except Exception as e:
             raise e
