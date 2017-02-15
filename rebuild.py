@@ -67,7 +67,7 @@ def routing():
             UPDATE routing r
                SET construction=s.construction
               FROM sidewalks s
-             WHERE r.iscrossing=0
+             WHERE NOT r.iscrossing
                AND r.o_id = s.gid
             ''')
 
@@ -76,8 +76,8 @@ def routing():
             UPDATE routing r
                SET curbramps = c.curbramps
               FROM crossings c
-             WHERE r.iscrossing=1
-               AND r.o_id = c.id
+             WHERE r.iscrossing
+               AND r.o_id = c.gid
             ''')
 
             # Create node network table
