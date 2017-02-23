@@ -27,11 +27,6 @@ def construction():
         sa.Column('closed', sa.String)
     )
 
-    with engine.begin() as conn:
-            # Drop the construction table if it exists
-            construction_t.drop(conn, checkfirst=True)
-            construction_t.create(conn)
-
     print('Fetching construction data...')
     use_url = 'https://data.seattle.gov/resource/hyub-wfuv.json'
     impact_url = 'https://data.seattle.gov/resource/brf3-mqwc.json'
