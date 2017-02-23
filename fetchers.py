@@ -14,6 +14,24 @@ def construction():
     # by impact' datasets
     #
 
+    # Create the table if it doesn't exist (also define it)
+    # Define the construction table
+    meta = sa.MetaData()
+    construction_t = sa.Table('construction', meta,  # noqa: E128
+        sa.Column('id', sa.Integer, primary_key=True),
+        sa.Column('geom', ga.Geometry('Point', srid=4326)),
+        sa.Column('permit_number', sa.String),
+        sa.Column('address', sa.String),
+        sa.Column('start_date', sa.Date),
+        sa.Column('end_date', sa.Date),
+        sa.Column('closed', sa.String)
+    )
+
+    with engine.begin() as conn:
+            # Drop the construction table if it exists
+            construction_t.drop(conn, checkfirst=True)
+            construction_t.create(conn)
+
     print('Fetching construction data...')
     use_url = 'https://data.seattle.gov/resource/hyub-wfuv.json'
     impact_url = 'https://data.seattle.gov/resource/brf3-mqwc.json'
@@ -213,18 +231,6 @@ def construction():
     # destroy data when there's a buggy commit
     with engine.begin() as conn:
         try:
-            # Define the construction table
-            meta = sa.MetaData()
-            construction_t = sa.Table('construction', meta,  # noqa: E128
-                sa.Column('id', sa.Integer, primary_key=True),
-                sa.Column('geom', ga.Geometry('Point', srid=4326)),
-                sa.Column('permit_number', sa.String),
-                sa.Column('address', sa.String),
-                sa.Column('start_date', sa.Date),
-                sa.Column('end_date', sa.Date),
-                sa.Column('closed', sa.String)
-            )
-
             # Drop the construction table if it exists
             construction_t.drop(conn, checkfirst=True)
 

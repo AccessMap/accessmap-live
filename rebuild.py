@@ -1,9 +1,12 @@
 from db import engine
 
 
+NODE_DIST = 0.0000001  # Nodes within ~10 cm will be joined for routing
+
+
 def sidewalks():
     # Update construction info from the construction table
-    # TODO: sqlalchemy-ify this?
+    # FIXME: this should be handled by proper schema definitions and migrations
     print('Updating sidewalks table...')
 
     with engine.connect() as conn:
@@ -31,9 +34,9 @@ def sidewalks():
           FROM (SELECT s2.gid
                   FROM construction c
                   JOIN sidewalks s2
-                    ON ST_DWithin(c.geom, s2.geom, 0.000001)) q
+                    ON ST_DWithin(c.geom, s2.geom, {})) q
          WHERE q.gid = s.gid
-        ''')
+        '''.format(NODE_DIST))
 
     print('Done')
 
@@ -48,6 +51,7 @@ def routing():
     with engine.begin() as conn:
         try:
             # If the routing table doesn't have a construction column, add it
+            # FIXME: this should be handled by a schema/migration?
             has_column = conn.execute("""
             SELECT column_name
               FROM information_schema.columns
@@ -80,30 +84,25 @@ def routing():
                AND r.o_id = c.gid
             ''')
 
+            print('    Creating node network...')
             # Create node network table
-            print('Creating node network...')
             conn.execute('''
-            DROP TABLE IF EXISTS routing_noded;
-            SELECT pgr_nodeNetwork('routing', 0.000001, 'id', 'geom');
-            ''')
+            SELECT pgr_nodeNetwork('routing', {}, 'id', 'geom', 'noded_new');
+            '''.format(NODE_DIST))
 
+            print('    Updating node network metadata...')
             # Add metadata do node network table
-            print('Updating node network metadata...')
             conn.execute('''
-            ALTER TABLE routing_noded
-             ADD COLUMN length numeric(6, 2) DEFAULT 0.0;
-            ALTER TABLE routing_noded
-             ADD COLUMN grade numeric(6, 4) DEFAULT 0.0;
-            ALTER TABLE routing_noded
-             ADD COLUMN curbramps boolean DEFAULT FALSE;
-            ALTER TABLE routing_noded
-             ADD COLUMN iscrossing boolean DEFAULT FALSE;
-            ALTER TABLE routing_noded
+            ALTER TABLE routing_noded_new
+             ADD COLUMN length numeric(6, 2) DEFAULT 0.0,
+             ADD COLUMN grade numeric(6, 4) DEFAULT 0.0,
+             ADD COLUMN curbramps boolean DEFAULT FALSE,
+             ADD COLUMN iscrossing boolean DEFAULT FALSE,
              ADD COLUMN construction boolean DEFAULT FALSE;
             ''')
 
             conn.execute('''
-            UPDATE routing_noded rn
+            UPDATE routing_noded_new rn
                SET length = ST_Length(rn.geom::geography),
                    grade = r.grade,
                    curbramps = r.curbramps,
@@ -113,16 +112,65 @@ def routing():
             ''')
 
             conn.execute('''
-            UPDATE routing_noded n
+            UPDATE routing_noded_new rn
                SET construction = TRUE
               FROM construction c
-             WHERE ST_DWithin(n.geom, c.geom, 0.000001)
-            ''')
+             WHERE ST_DWithin(rn.geom, c.geom, {})
+            '''.format(NODE_DIST))
 
+            print('    Recreating routing graph...')
             # Set up pgrouting vertices table
             conn.execute('''
-            SELECT pgr_createTopology('routing_noded', 0.000001, 'geom', 'id');
-            ''')
+            SELECT pgr_createTopology('routing_noded_new', {}, 'geom', 'id');
+            '''.format(NODE_DIST))
+
+            # Rename tables - faster to rename than drop/replace
+            print('    Renaming tables...')
+
+            tables = ['routing_noded{}', 'routing_noded{}_vertices_pgr',
+                      'routing_noded{}_vertices_pgr', 'routing_noded{}_id_seq',
+                      'routing_noded{}_vertices_pgr_id_seq']
+
+            idxs = ['routing_noded{}_pkey', 'routing_noded{}_geom_idx',
+                    'routing_noded{}_source_idx', 'routing_noded{}_target_idx',
+                    'routing_noded{}_vertices_pgr_pkey',
+                    'routing_noded{}_vertices_pgr_the_geom_idx']
+
+            rename_t = 'ALTER TABLE IF EXISTS {} RENAME TO {};'
+            rename_i = 'ALTER INDEX IF EXISTS {} RENAME TO {};'
+            drop_t = 'DROP TABLE IF EXISTS {};'
+            drop_i = 'DROP INDEX IF EXISTS {};'
+
+            sql_list = []
+            for t in tables:
+                orig = t.format('')
+                old = t.format('_old')
+                sql_list.append(rename_t.format(orig, old))
+
+            for i in idxs:
+                orig = i.format('')
+                old = i.format('_old')
+                sql_list.append(rename_i.format(orig, old))
+
+            for t in tables:
+                new = t.format('_new')
+                orig = t.format('')
+                sql_list.append(rename_t.format(new, orig))
+
+            for i in idxs:
+                new = i.format('_new')
+                orig = i.format('')
+                sql_list.append(rename_i.format(new, orig))
+
+            for t in tables:
+                sql_list.append(drop_t.format(t.format('_old')))
+
+            for i in idxs:
+                sql_list.append(drop_i.format(i.format('_old')))
+
+            rename_tables = '\n\n'.join(sql_list)
+
+            conn.execute(rename_tables)
         except Exception as e:
             raise e
             print('    Failed')
