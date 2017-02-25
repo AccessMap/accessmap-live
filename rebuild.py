@@ -34,7 +34,9 @@ def sidewalks():
           FROM (SELECT s2.gid
                   FROM construction c
                   JOIN sidewalks s2
-                    ON ST_DWithin(c.geom, s2.geom, {})) q
+                    ON ST_DWithin(c.geom, s2.geom, {})
+                 WHERE c.start_date <= current_timestamp
+                   AND c.end_date >= current_timestamp) q
          WHERE q.gid = s.gid
         '''.format(NODE_DIST))
 
@@ -116,6 +118,8 @@ def routing():
                SET construction = TRUE
               FROM construction c
              WHERE ST_DWithin(rn.geom, c.geom, {})
+               AND start_date <= current_timestamp
+               AND end_date >= current_timestamp
             '''.format(NODE_DIST))
 
             print('    Recreating routing graph...')
